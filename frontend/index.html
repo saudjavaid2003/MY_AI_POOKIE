@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pookie AI</title>
+  <style>
+    body { font-family: Arial; text-align: center; margin-top: 50px; }
+    #log { font-size: 20px; margin-top: 20px; color: #333; }
+    button { padding: 10px 20px; font-size: 18px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>🎙️ Talk to Pookie</h1>
+  <button onclick="startRecognition()">Start Talking</button>
+  <div id="log"></div>
+  <audio id="responseAudio"></audio>
+
+  <script>
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    async function startRecognition() {
+      document.getElementById('log').textContent = 'Listening...';
+      recognition.start();
+    }
+
+    recognition.onresult = async (event) => {
+      const transcript = event.results[0][0].transcript;
+      document.getElementById('log').textContent = `You said: ${transcript}`;
+
+      // 🧠 Call backend for AI response
+      const chatRes = await fetch('http://localhost:3000/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: transcript })
+      });
+
+      const data = await chatRes.json();
+      const aiReply = data.reply;
+      document.getElementById('log').textContent += `\nPookie: ${aiReply}`;
+
+      // 🔊 Call backend for voice
+      const ttsRes = await fetch('http://localhost:3000/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: aiReply })
+      });
+
+      const audioBlob = await ttsRes.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = document.getElementById('responseAudio');
+      audio.src = audioUrl;
+      audio.play();
+    };
+
+    recognition.onerror = (e) => {
+      document.getElementById('log').textContent = 'Error: ' + e.error;
+    };
+  </script>
+</body>
+</html>
